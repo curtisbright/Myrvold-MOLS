@@ -4,20 +4,29 @@
 
 # This script takes from the user four squares of order n=10 from the standard input and the square types on the command-line
 # It verifies that
-# 1) All colours were assigned a proper symbol for that colour
-# 2) The squares are Latin squares that are transversal representations of each other
-# 3) There are 2 dark entries in each of the first six columns and the dark entries of the two squares match
-# 4) The permutation type of each row is correct for that square type
+# 1) All colours were assigned a proper symbol for that colour.
+# 2) The squares are Latin squares that are transversal representations of each other.
+# 3) There are 2 dark entries in each of the first six columns and the dark entries of the two squares match.
+# 4) The permutation type of each row is correct for that square type.
+# 5) The coloured transversal representation pair is in normal form (i.e., satisfies the symmetry breaking constraints).
+# 6) The 4x4 subsquare consistency constraints are satisfied (using the white entries in the last four columns).
 
 import sys
 
 # Order of the squares
 n = 10
 
+use_z4 = "-z4" in sys.argv
+if use_z4: sys.argv.remove("-z4")
+use_z2xz2 = "-z2xz2" in sys.argv
+if use_z2xz2: sys.argv.remove("-z2xz2")
+if "-z4z2xz2" in sys.argv: use_z4 = True; use_z2xz2 = True; sys.argv.remove("-z4z2xz2")
+
 # Read from standard input
 # Verify that square names are provided
 if len(sys.argv) <= 1:
-	print("Need to provide the names of the squares as first command-line argument: e.g. VX")
+	print("Need to provide the names of the squares as first command-line argument: e.g., VX")
+	print("Optionally pass -z4 or -z2xz2 to verify subsquare consistency constraints for Z_4 or Z_2 x Z_2")
 	quit()
 
 type1 = sys.argv[1][0]
@@ -67,89 +76,117 @@ square_data = {
 }
 #############################################################
 
-#Read the four matrices to use the data
-V1 = [[[0 for k in range(n)] for j in range(n)] for i in range(n)]
-X1 = [[[0 for k in range(n)] for j in range(n)] for i in range(n)]
-S1 = [[[0 for k in range(n)] for j in range(n)] for i in range(n)]
-T1 = [[[0 for k in range(n)] for j in range(n)] for i in range(n)]
+# Four matrices to store the coloured TRP
+Pc = [[[0 for k in range(n)] for j in range(n)] for i in range(n)]
+Qc = [[[0 for k in range(n)] for j in range(n)] for i in range(n)]
+P = [[[0 for k in range(n)] for j in range(n)] for i in range(n)]
+Q = [[[0 for k in range(n)] for j in range(n)] for i in range(n)]
 
 # Read from standard input
 input_lines = sys.stdin.readlines()
 
-# Read entries of square V1
+# Read colours of square P
 for i in range(n):
 	j = 0
 	assert(len(input_lines[i].split()) == n)
 	for s in input_lines[i].split():
 		assert(s in {"w", "l", "d"})
-		V1[i][j] = s
+		Pc[i][j] = s
 		j += 1
 
-# Read entries of square X1
+# Read colours of square Q
 for i in range(n):
 	j = 0
 	assert(len(input_lines[n+1+i].split()) == n)
 	for s in input_lines[n+1+i].split():
 		assert(s in {"w", "l", "d"})
-		X1[i][j] = s
+		Qc[i][j] = s
 		j += 1
 
-# Read entries of square S1
+# Read symbols of square P
 for i in range(n):
 	j = 0
 	assert(len(input_lines[2*(n+1)+i].split()) == n)
 	for s in input_lines[2*(n+1)+i].split():
 		assert(int(s) >= 0 and int(s) < n)
-		S1[i][j] = int(s)
+		P[i][j] = int(s)
 		j += 1
 
-# Read entries of square T1
+# Read symbols of square Q
 for i in range(n):
 	j = 0
 	assert(len(input_lines[3*(n+1)+i].split()) == n)
 	for s in input_lines[3*(n+1)+i].split():
 		assert(int(s) >= 0 and int(s) < n)
-		T1[i][j] = int(s)
+		Q[i][j] = int(s)
 		j += 1
 
 # Verify 1) All colours were assigned a proper symbol for that colour.
 for i in range(n):
 	for j in range(n):
-		if V1[i][j] == 'w':
-			assert(S1[i][j] < 4)
+		if Pc[i][j] == 'w':
+			assert(P[i][j] < 4)
 		else:
-			assert(S1[i][j] >= 4)
-		if X1[i][j] == 'w':
-			assert(T1[i][j] < 4)
+			assert(P[i][j] >= 4)
+		if Qc[i][j] == 'w':
+			assert(Q[i][j] < 4)
 		else:
-			assert(T1[i][j] >= 4)
+			assert(Q[i][j] >= 4)
 
 # Verify 2) The squares are Latin squares that are transversal representations of each other.
-assert(latin(S1))
-assert(latin(T1))
-assert(transversal(S1,T1))
-assert(transversal(T1,S1))
+assert(latin(P))
+assert(latin(Q))
+assert(transversal(P,Q))
+assert(transversal(Q,P))
 
 # Verify 3) There are 2 dark entries in each of the first six columns and the dark entries of the two squares match.
 for j in range(6):
-	assert([V1[i][j] for i in range(n)].count('d') == 2)
-	assert([X1[i][j] for i in range(n)].count('d') == 2)
-	assert({S1[i][j] for i in range(n) if V1[i][j] == 'd'} == {T1[i][j] for i in range(n) if X1[i][j] == 'd'})
+	assert([Pc[i][j] for i in range(n)].count('d') == 2)
+	assert([Qc[i][j] for i in range(n)].count('d') == 2)
+	assert({P[i][j] for i in range(n) if Pc[i][j] == 'd'} == {Q[i][j] for i in range(n) if Qc[i][j] == 'd'})
 
 # Verify 4) The permutation type of each row is correct for that square type.
 for i in range(n):
-	assert(V1[i][:6].count('w') == square_data[type1][i][0])
-	assert(V1[i][:6].count('l') == square_data[type1][i][1])
-	assert(V1[i][6:].count('w') == square_data[type1][i][2])
-	assert(V1[i][6:].count('l') == square_data[type1][i][3])
-	assert(V1[i][:6].count('d') == square_data[type1][i][4])
-	assert(V1[i][6:].count('d') == 0)
+	assert(Pc[i][:6].count('w') == square_data[type1][i][0])
+	assert(Pc[i][:6].count('l') == square_data[type1][i][1])
+	assert(Pc[i][6:].count('w') == square_data[type1][i][2])
+	assert(Pc[i][6:].count('l') == square_data[type1][i][3])
+	assert(Pc[i][:6].count('d') == square_data[type1][i][4])
+	assert(Pc[i][6:].count('d') == 0)
 
-	assert(X1[i][:6].count('w') == square_data[type2][i][0])
-	assert(X1[i][:6].count('l') == square_data[type2][i][1])
-	assert(X1[i][6:].count('w') == square_data[type2][i][2])
-	assert(X1[i][6:].count('l') == square_data[type2][i][3])
-	assert(X1[i][:6].count('d') == square_data[type2][i][4])
-	assert(X1[i][6:].count('d') == 0)
+	assert(Qc[i][:6].count('w') == square_data[type2][i][0])
+	assert(Qc[i][:6].count('l') == square_data[type2][i][1])
+	assert(Qc[i][6:].count('w') == square_data[type2][i][2])
+	assert(Qc[i][6:].count('l') == square_data[type2][i][3])
+	assert(Qc[i][:6].count('d') == square_data[type2][i][4])
+	assert(Qc[i][6:].count('d') == 0)
+
+# Verify 5) The symmetry breaking
+# The rows of the same transversal types are lexicographically sorted in both squares
+for i in range(n-1):
+	if square_data[type1][i] == square_data[type1][i+1]:
+		assert(P[i][0] < P[i+1][0])
+	if square_data[type2][i] == square_data[type2][i+1]:
+		assert(Q[i][0] < Q[i+1][0])
+# First row of first square is in normal form
+assert(P[0] == [0, 1, 2, 4, 5, 6, 3, 7, 8, 9] or P[0] == [0, 1, 3, 4, 5, 6, 2, 7, 8, 9] or P[0] == [0, 2, 3, 4, 5, 6, 1, 7, 8, 9])
+
+# Verify 6) The subsquare consistency constraints
+Ls = [[[0,1,2,3],[1,2,3,0],[2,3,0,1],[3,0,1,2]],
+      [[0,1,2,3],[1,0,3,2],[2,3,0,1],[3,2,1,0]]]
+compatible_with_subsq = [True, True]
+for subsq in range(2):
+	L = Ls[subsq]
+	for i in range(n):
+		for j in range(6,n):
+			for jp in range(j+1,n):
+				for k in range(4):
+					if P[i][j] == L[k][j-6] and P[i][jp] == L[k][jp-6]: compatible_with_subsq[subsq] = False
+					if Q[i][j] == L[k][j-6] and Q[i][jp] == L[k][jp-6]: compatible_with_subsq[subsq] = False
+	if compatible_with_subsq[subsq]:
+		print(f"TRP is compatible with 4x4 Latin subsquare Omega_{subsq+1}" + (" (Cayley table of Z_4)" if subsq == 0 else " (Cayley table of Z_2xZ_2)"))
+assert(compatible_with_subsq != [False, False])
+if use_z4: assert(compatible_with_subsq[0])
+if use_z2xz2: assert(compatible_with_subsq[1])
 
 print("All constraints verified.")

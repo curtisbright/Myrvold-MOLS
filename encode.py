@@ -20,9 +20,16 @@ transversal_types = {
 'X': 4*[1] + 6*[2]
 }
 
+use_z4 = "-z4" in sys.argv
+if use_z4: sys.argv.remove("-z4")
+use_z2xz2 = "-z2xz2" in sys.argv
+if use_z2xz2: sys.argv.remove("-z2xz2")
+if "-z4z2xz2" in sys.argv: use_z4 = True; use_z2xz2 = True; sys.argv.remove("-z4z2xz2")
+
 # Verify that square names are provided
 if len(sys.argv) <= 1 or len(sys.argv[1]) <= 1:
-	print("Need to provide the names of the squares as first command-line argument: e.g. VX")
+	print("Need to provide the names of the squares as first command-line argument: e.g., VX")
+	print("Optionally pass -z4 or -z2xz2 to encode subsquare consistency constraints for Z_4 or Z_2 x Z_2")
 	quit()
 
 # Verify the square types are valid
@@ -221,31 +228,23 @@ for i in range(n):
 	for j in range(6):
 		generate_implication_clause({Qc[i][j][DARK]}, {Q[i][j][4], Q[i][j][5], Q[i][j][6], Q[i][j][7], Q[i][j][8], Q[i][j][9]})
 
-# Fixing the entries of the last row of P
-
-if P_type in ['R', 'T', 'V']:
-	# Final row is [4,5,6,7,8,9,0,1,2,3]
-	L = [P[9][0][4], P[9][1][5], P[9][2][6], P[9][3][7], P[9][4][8], P[9][5][9], P[9][6][0], P[9][7][1], P[9][8][2], P[9][9][3]]
-	for i in L:
-		generate_clause([i])
-	for i in range(6):
-		generate_clause([Pc[9][i][DARK]])
-
-if P_type in ['S', 'U', 'W']:
-	# Final row is [3,4,5,6,7,8,0,1,2,9]
-	L = [P[9][0][3], P[9][1][4], P[9][2][5], P[9][3][6], P[9][4][7], P[9][5][8], P[9][6][0], P[9][7][1], P[9][8][2], P[9][9][9]]
-	for i in L:
-		generate_clause([i])
-	for i in range(2, 6):
-		generate_clause([Pc[9][i][DARK]])
-
-if P_type == 'X':
-	# Final row is [2,3,4,5,6,7,0,1,8,9]
-	L = [P[9][0][2], P[9][1][3], P[9][2][4], P[9][3][5], P[9][4][6], P[9][5][7], P[9][6][0], P[9][7][1], P[9][8][8], P[9][9][9]]
-	for i in L:
-		generate_clause([i])
-	for i in range(4, 6):
-		generate_clause([Pc[9][i][DARK]])
+# Fixing symbols in the first row of P (symmetry breaking)
+# First row is one of
+# * [0, 1, 2, 4, 5, 6, 3, 7, 8, 9]
+# * [0, 1, 3, 4, 5, 6, 2, 7, 8, 9]
+# * [0, 2, 3, 4, 5, 6, 1, 7, 8, 9]
+for cl in [P[0][0][0], P[0][3][4], P[0][4][5], P[0][5][6], P[0][7][7], P[0][8][8], P[0][9][9]]:
+	generate_clause([cl])
+generate_implication_clause({P[0][6][3]}, {P[0][1][1]})
+generate_implication_clause({P[0][6][3]}, {P[0][2][2]})
+generate_implication_clause({P[0][6][2]}, {P[0][1][1]})
+generate_implication_clause({P[0][6][2]}, {P[0][2][3]})
+generate_implication_clause({P[0][6][1]}, {P[0][1][2]})
+generate_implication_clause({P[0][6][1]}, {P[0][2][3]})
+generate_implication_clause({P[0][1][2]}, {P[0][2][3]})
+generate_implication_clause({P[0][1][2]}, {P[0][6][1]})
+generate_implication_clause({P[0][2][2]}, {P[0][1][1]})
+generate_implication_clause({P[0][2][2]}, {P[0][6][3]})
 
 # Ensure consistency of the dark entries in P and Q
 for i in range(n):
@@ -268,16 +267,56 @@ for i in range(n):
 # Order rows of P and Q of the same type lexicographically
 
 # Generate symbol ordering constraints within a block of the same colour
-# K is the list of transversal types for the square H; sort_final_row controls if the final row of H should also be sorted
-def lex_order(K, H, sort_final_row):
-	for i in range(n-1 if sort_final_row else n-2):
+# K is the list of transversal types for the square H
+def lex_order(K, H):
+	for i in range(n-1):
 		if K[i] == K[i+1]:
 			for k in range(n):
 				for l in range(k):
 					generate_implication_clause({H[i][0][k]}, {-H[i+1][0][l]})
 
-lex_order(transversal_types[P_type], P, False) # Final row of P is not sorted as its entries were already fixed
-lex_order(transversal_types[Q_type], Q, True)
+lex_order(transversal_types[P_type], P)
+lex_order(transversal_types[Q_type], Q)
+
+# Constraints that the squares in the TRP are consistent with one of the following 4x4 Latin subsquares in the bottom-right of the third square L:
+# Omega_1 (The Cayley table of Z_4)
+# [ 0 1 2 3 ]
+# [ 1 2 3 0 ]
+# [ 2 3 0 1 ]
+# [ 3 0 1 2 ]
+# Omega_2 (The Cayley table of Z_2 x Z_2)
+# [ 0 1 2 3 ]
+# [ 1 0 3 2 ]
+# [ 2 3 0 1 ]
+# [ 3 2 1 0 ]
+Ls = [[[0,1,2,3],[1,2,3,0],[2,3,0,1],[3,0,1,2]],
+      [[0,1,2,3],[1,0,3,2],[2,3,0,1],[3,2,1,0]]]
+# Two new variables omega[0] and omega[1] to encode which order 4 subsquare appears in L
+omega = [total_vars+1, total_vars+2]
+total_vars += 2
+for subsqtype in range(2):
+	L = Ls[subsqtype]
+	for i in range(n):
+		for j in range(6,n):
+			for jp in range(j+1,n):
+				for l in range(4):
+					k = L[l][j-6]
+					kp = L[l][jp-6]
+					# The omega variable can be removed from the antecedent if the (l,j-6) and (l,jp-6) entries in both order 4 subsquares are the same
+					if Ls[0][l][j-6] == Ls[1][l][j-6] and Ls[0][l][jp-6] == Ls[1][l][jp-6]:
+						generate_implication_clause({P[i][j][k]}, {-P[i][jp][kp]})
+						generate_implication_clause({Q[i][j][k]}, {-Q[i][jp][kp]})
+					else:
+						generate_implication_clause({omega[subsqtype], P[i][j][k]}, {-P[i][jp][kp]})
+						generate_implication_clause({omega[subsqtype], Q[i][j][k]}, {-Q[i][jp][kp]})
+# (P,Q) must be compatible with the 4x4 subsquare Omega_1 or Omega_2
+generate_clause({omega[0], omega[1]})
+# If -z4 option enabled, (P,Q) must be compatible with Omega_1
+if use_z4:
+	generate_clause({omega[0]})
+# If -z2xz2 option enabled, (P,Q) must be compatible with Omega_2
+if use_z2xz2:
+	generate_clause({omega[1]})
 
 # Output SAT instance in DIMACS format
 print("p cnf {} {}".format(total_vars, len(clauses)))

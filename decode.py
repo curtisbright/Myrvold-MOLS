@@ -5,6 +5,11 @@
 
 import sys
 
+if "-h" in sys.argv:
+	print("Script to print the Latin squares encoded by a SAT assignment")
+	print("The SAT assignment should be provided on the standard input")
+	quit()
+
 # List of colours
 DARK = 2
 WHITE = 3
